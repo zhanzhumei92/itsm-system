@@ -1,0 +1,68 @@
+# ============================================================================
+# 亿网通IT运维监控管理平台 —— Python 依赖清单
+# 安装：pip install -r requirements.txt
+# 说明：Windows 专用依赖已用环境标记隔离，Linux/macOS 安装时自动跳过
+# ============================================================================
+
+# ---------- Web 框架与服务器 ----------
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20            # 表单/文件上传（资产 Excel 导入）
+
+# ---------- 数据校验与配置 ----------
+pydantic==2.10.4
+pydantic-settings==2.7.0
+python-dotenv==1.0.1
+
+# ---------- 数据库 ----------
+SQLAlchemy==2.0.36
+pymysql==1.1.1                      # 迁移 MySQL 时使用，SQLite 阶段无影响
+
+# ---------- 安全 ----------
+# JWT 令牌签发与校验。选用 python-jose 而非 PyJWT：
+# 1) python-jose 是 FastAPI 官方文档的推荐实现，API 与 PyJWT 基本一致；
+# 2) 依赖链稳定（cryptography/rsa/ecdsa 已在依赖内），内网离线部署时更容易打包。
+python-jose[cryptography]==3.5.0
+bcrypt==4.2.1                       # 密码哈希（不依赖 passlib，避免 4.x 兼容告警）
+cryptography==44.0.0                # Fernet 对称加密，保护设备口令与告警密钥
+
+# ---------- 任务调度 ----------
+APScheduler==3.11.0                 # 定时采集 / 轮询探测 / 数据清理
+
+# ---------- 采集协议 ----------
+# SNMP：Python 3.12+ 已移除 asyncore，必须用 7.x（asyncio 内核）
+#      若部署在 Python 3.11 及以下且希望使用同步 API，可改用 pysnmp==4.4.12
+pysnmp>=7.1.0
+pysnmp-lextudio>=6.0.0; python_version < "3.12"
+
+# SSH：netmiko 内部依赖 paramiko，适配华为 / 华三（hp_comware）/ Linux
+#
+# ⚠ 版本下限必须 >= 4.4（实测 4.7.0），原因是 Python 3.13 移除了标准库 telnetlib
+#   （PEP 594），而 netmiko 4.3.0 在模块顶层 `import telnetlib`，
+#   在 3.13 上直接 ImportError 起不来。4.4+ 改为按需导入，才兼容 3.13。
+#   若部署环境是 Python 3.11 及以下，4.3.0 也可用。
+netmiko==4.7.0
+paramiko==4.0.0                     # netmiko 4.7 要求 paramiko < 5，不要单独升级
+
+# WinRM：Windows Server 远程采集（pywinrm 纯 Python，跨平台可安装）
+pywinrm==0.5.0
+
+# WMI：仅 Windows 采集机需要，Linux/macOS 自动跳过
+WMI==1.5.1; sys_platform == "win32"
+
+# ICMP 长 Ping —— 注意一个容易误解的事实：
+#   pythonping 走**原始套接字（SOCK_RAW）**自己构造 ICMP 包，
+#   因此在 Linux/macOS 上需要 root 或 CAP_NET_RAW，在 Windows 上需要管理员权限。
+#   这不是"纯 Python 就免权限"，绕过内核协议栈就必须由内核授权。
+#   本平台对此做了自动降级：pythonping 不可用时改用系统 ping 命令
+#   （Linux/macOS 的 ping 带 setuid 位、Windows 的 ping 无特权要求），
+#   详见 app/collectors/icmp.py，不影响功能，只损失逐包 RTT 精度。
+pythonping==1.1.4
+
+# ---------- 报表与导入导出 ----------
+openpyxl==3.1.5                     # 资产台账 Excel 导入导出
+
+# ---------- 测试 ----------
+pytest==8.3.4
+pytest-asyncio==0.25.0
+httpx==0.28.1                       # FastAPI TestClient 依赖
